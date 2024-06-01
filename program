@@ -1,0 +1,68 @@
+import os
+import time
+from datetime import datetime
+from PIL import Image
+import pyautogui
+import pytesseract
+from openpyxl import Workbook
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+
+# Ensure the directory exists
+output_dir = "d/tmig"
+os.makedirs(output_dir, exist_ok=True)
+
+# Define the area to capture (left, top, width, height)
+capture_area = (100, 100, 800, 600)  # Adjust these values as needed
+
+# Initialize Excel workbook
+wb = Workbook()
+ws = wb.active
+ws.title = "OCR Results"
+ws.append(["Timestamp", "JPEG Text", "PNG Text", "PDF Text"])
+
+def capture_and_save_images():
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    file_base = os.path.join(output_dir, f"capture_{timestamp}")
+
+    # Capture the screen area
+    screenshot = pyautogui.screenshot(region=capture_area)
+
+    # Save as JPEG
+    jpeg_path = f"{file_base}.jpg"
+    screenshot.save(jpeg_path, "JPEG")
+
+    # Save as PNG
+    png_path = f"{file_base}.png"
+    screenshot.save(png_path, "PNG")
+
+    # Save as PDF
+    pdf_path = f"{file_base}.pdf"
+    c = canvas.Canvas(pdf_path, pagesize=letter)
+    c.drawImage(jpeg_path, 0, 0, width=letter[0], height=letter[1])
+    c.save()
+
+    return jpeg_path, png_path, pdf_path
+
+def perform_ocr(image_path):
+    return pytesseract.image_to_string(Image.open(image_path))
+
+def main():
+    while True:
+        jpeg_path, png_path, pdf_path = capture_and_save_images()
+
+        # Perform OCR on each image
+        jpeg_text = perform_ocr(jpeg_path)
+        png_text = perform_ocr(png_path)
+        pdf_text = perform_ocr(pdf_path)
+
+        # Save the OCR results to Excel
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ws.append([timestamp, jpeg_text, png_text, pdf_text])
+        wb.save(os.path.join(output_dir, "ocr_results.xlsx"))
+
+        # Wait for 10 seconds before capturing the next image
+        time.sleep(10)
+
+if __name__ == "__main__":
+    main()
